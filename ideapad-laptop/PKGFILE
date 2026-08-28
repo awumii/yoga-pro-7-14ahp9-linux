@@ -1,0 +1,34 @@
+# Maintainer: awumii (awumii@protonmail.com)
+pkgname=ideapad-laptop-dkms
+pkgver=1.0
+pkgrel=1
+pkgdesc="Patched ideapad-laptop kernel module for Yoga Pro 7 14AHP9 (DKMS)"
+arch=('x86_64')
+url="https://github.com/awumii/yoga-pro-7-14ahp9-linux"
+license=('GPL-2.0-only')
+depends=('dkms')
+provides=('ideapad-laptop')
+conflicts=('ideapad-laptop')
+
+source=(
+    'ideapad-laptop/dkms.conf'
+    'ideapad-laptop/ideapad-laptop.c'
+    'ideapad-laptop/ideapad-laptop.h'
+    'ideapad-laptop/Makefile'
+)
+sha256sums=(
+    'SKIP'
+    'SKIP'
+    'SKIP'
+    'SKIP'
+)
+
+package() {
+    local dest_dir="${pkgdir}/usr/src/${pkgname%-dkms}-${pkgver}"
+
+    install -dm755 "${dest_dir}"
+    install -m644 "${srcdir}/dkms.conf" "${dest_dir}/"
+    install -m644 "${srcdir}/ideapad-laptop.c" "${dest_dir}/"
+    install -m644 "${srcdir}/ideapad-laptop.h" "${dest_dir}/"
+    install -m644 "${srcdir}/Makefile" "${dest_dir}/"
+}
