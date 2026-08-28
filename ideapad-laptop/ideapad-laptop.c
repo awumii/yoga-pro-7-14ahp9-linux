@@ -1530,14 +1530,14 @@ static int ideapad_backlight_init(struct ideapad_private *priv)
 	props.type = BACKLIGHT_PLATFORM;
 
 	blightdev = backlight_device_register("ideapad",
-					      &priv->platform_device->dev,
-					      priv,
-					      &ideapad_backlight_ops,
-					      &props);
+										  &priv->platform_device->dev,
+									   priv,
+									   &ideapad_backlight_ops,
+									   &props);
 	if (IS_ERR(blightdev)) {
 		err = PTR_ERR(blightdev);
 		dev_err(&priv->platform_device->dev,
-			"Could not register backlight device: %d\n", err);
+				"Could not register backlight device: %d\n", err);
 		return err;
 	}
 
@@ -1579,7 +1579,7 @@ static void ideapad_backlight_notify_brightness(struct ideapad_private *priv)
 	/* if we control brightness via acpi video driver */
 	if (!priv->blightdev)
 		scoped_guard(mutex, &priv->vpc_mutex)
-			read_ec_data(priv->adev->handle, VPCCMD_R_BL, &now);
+		read_ec_data(priv->adev->handle, VPCCMD_R_BL, &now);
 	else
 		backlight_force_update(priv->blightdev, BACKLIGHT_UPDATE_HOTKEY);
 }
@@ -1599,9 +1599,9 @@ static int ideapad_kbd_bl_brightness_get(struct ideapad_private *priv)
 
 	if (ideapad_kbd_bl_check_tristate(priv->kbd_bl.type)) {
 		err = eval_kblc(priv->adev->handle,
-				FIELD_PREP(KBD_BL_COMMAND_TYPE, priv->kbd_bl.type) |
-				KBD_BL_COMMAND_GET,
-				&value);
+						FIELD_PREP(KBD_BL_COMMAND_TYPE, priv->kbd_bl.type) |
+						KBD_BL_COMMAND_GET,
+				  &value);
 
 		if (err)
 			return err;
@@ -1609,17 +1609,13 @@ static int ideapad_kbd_bl_brightness_get(struct ideapad_private *priv)
 		/* Convert returned value to brightness level */
 		value = FIELD_GET(KBD_BL_GET_BRIGHTNESS, value);
 
-		/* Off, low or high */
+		/* Off (0), Low (1), High (2) or Auto (3) */
 		if (value <= priv->kbd_bl.led.max_brightness)
 			return value;
 
-		/* Auto, report as off */
-		if (value == priv->kbd_bl.led.max_brightness + 1)
-			return 0;
-
 		/* Unknown value */
 		dev_warn(&priv->platform_device->dev,
-			 "Unknown keyboard backlight value: %lu", value);
+				 "Unknown keyboard backlight value: %lu\n", value);
 		return -EINVAL;
 	}
 
@@ -1648,8 +1644,8 @@ static int ideapad_kbd_bl_brightness_set(struct ideapad_private *priv, unsigned 
 			return -EINVAL;
 
 		value = FIELD_PREP(KBD_BL_SET_BRIGHTNESS, brightness) |
-			FIELD_PREP(KBD_BL_COMMAND_TYPE, type) |
-			KBD_BL_COMMAND_SET;
+		FIELD_PREP(KBD_BL_COMMAND_TYPE, type) |
+		KBD_BL_COMMAND_SET;
 		err = exec_kblc(priv->adev->handle, value);
 	} else {
 		err = exec_sals(priv->adev->handle, brightness ? SALS_KBD_BL_ON : SALS_KBD_BL_OFF);
@@ -1664,7 +1660,7 @@ static int ideapad_kbd_bl_brightness_set(struct ideapad_private *priv, unsigned 
 }
 
 static int ideapad_kbd_bl_led_cdev_brightness_set(struct led_classdev *led_cdev,
-						  enum led_brightness brightness)
+												  enum led_brightness brightness)
 {
 	struct ideapad_private *priv = container_of(led_cdev, struct ideapad_private, kbd_bl.led);
 
@@ -1675,18 +1671,26 @@ static void ideapad_kbd_bl_notify(struct ideapad_private *priv)
 {
 	int brightness;
 
+	//pr_info("ideapad_kbd_bl_notify called, initialized=%d\n", priv->kbd_bl.initialized);
+
 	if (!priv->kbd_bl.initialized)
 		return;
 
 	brightness = ideapad_kbd_bl_brightness_get(priv);
+	//pr_info("ideapad_kbd_bl_notify: read brightness=%d, last=%d\n",
+	//		brightness, priv->kbd_bl.last_brightness);
+
 	if (brightness < 0)
 		return;
 
-	if (brightness == priv->kbd_bl.last_brightness)
+	if (brightness == priv->kbd_bl.last_brightness) {
+		//pr_info("ideapad_kbd_bl_notify: brightness unchanged, dropping event\n");
 		return;
+	}
 
 	priv->kbd_bl.last_brightness = brightness;
 
+	//pr_info("ideapad_kbd_bl_notify: sending uevent for brightness=%d\n", brightness);
 	led_classdev_notify_brightness_hw_changed(&priv->kbd_bl.led, brightness);
 }
 
@@ -1700,7 +1704,9 @@ static int ideapad_kbd_bl_init(struct ideapad_private *priv)
 	if (WARN_ON(priv->kbd_bl.initialized))
 		return -EEXIST;
 
-	if (ideapad_kbd_bl_check_tristate(priv->kbd_bl.type))
+	if (priv->kbd_bl.type == KBD_BL_TRISTATE_AUTO)
+		priv->kbd_bl.led.max_brightness = 3;
+	else if (priv->kbd_bl.type == KBD_BL_TRISTATE)
 		priv->kbd_bl.led.max_brightness = 2;
 	else
 		priv->kbd_bl.led.max_brightness = 1;
@@ -1923,57 +1929,57 @@ static void ideapad_acpi_notify(acpi_handle handle, u32 event, void *data)
 
 	for_each_set_bit(bit, &vpc1, 16) {
 		switch (bit) {
-		case 13:
-		case 11:
-		case 8:
-		case 7:
-		case 6:
-			ideapad_input_report(priv, bit);
-			break;
-		case 10:
-			/*
-			 * This event gets send on a Yoga 300-11IBR when the EC
-			 * believes that the device has changed between laptop/
-			 * tent/stand/tablet mode. The EC relies on getting
-			 * angle info from 2 accelerometers through a special
-			 * windows service calling a DSM on the DUAL250E ACPI-
-			 * device. Linux does not do this, making the laptop/
-			 * tent/stand/tablet mode info unreliable, so we simply
-			 * ignore these events.
-			 */
-			break;
-		case 9:
-			ideapad_sync_rfk_state(priv);
-			break;
-		case 5:
-			ideapad_sync_touchpad_state(priv, true);
-			break;
-		case 4:
-			ideapad_backlight_notify_brightness(priv);
-			break;
-		case 3:
-			ideapad_input_novokey(priv);
-			break;
-		case 2:
-			ideapad_backlight_notify_power(priv);
-			break;
-		case KBD_BL_KBLC_CHANGED_EVENT:
-		case 1:
-			/*
-			 * Some IdeaPads report event 1 every ~20
-			 * seconds while on battery power; some
-			 * report this when changing to/from tablet
-			 * mode; some report this when the keyboard
-			 * backlight has changed.
-			 */
-			ideapad_kbd_bl_notify(priv);
-			break;
-		case 0:
-			ideapad_check_special_buttons(priv);
-			break;
-		default:
-			dev_info(&priv->platform_device->dev,
-				 "Unknown event: %lu\n", bit);
+			case 13:
+			case 11:
+			case 8:
+			case 7:
+			case 6:
+				ideapad_input_report(priv, bit);
+				break;
+			case 10:
+				/*
+				 * This event gets send on a Yoga 300-11IBR when the EC
+				 * believes that the device has changed between laptop/
+				 * tent/stand/tablet mode. The EC relies on getting
+				 * angle info from 2 accelerometers through a special
+				 * windows service calling a DSM on the DUAL250E ACPI-
+				 * device. Linux does not do this, making the laptop/
+				 * tent/stand/tablet mode info unreliable, so we simply
+				 * ignore these events.
+				 */
+				break;
+			case 9:
+				ideapad_sync_rfk_state(priv);
+				break;
+			case 5:
+				ideapad_sync_touchpad_state(priv, true);
+				break;
+			case 4:
+				ideapad_backlight_notify_brightness(priv);
+				break;
+			case 3:
+				ideapad_input_novokey(priv);
+				break;
+			case 2:
+				ideapad_backlight_notify_power(priv);
+				break;
+			case KBD_BL_KBLC_CHANGED_EVENT:
+			case 1:
+				/*
+				 * Some IdeaPads report event 1 every ~20
+				 * seconds while on battery power; some
+				 * report this when changing to/from tablet
+				 * mode; some report this when the keyboard
+				 * backlight has changed.
+				 */
+				ideapad_kbd_bl_notify(priv);
+				break;
+			case 0:
+				ideapad_check_special_buttons(priv);
+				break;
+			default:
+				dev_info(&priv->platform_device->dev,
+						 "Unknown event: %lu\n", bit);
 		}
 	}
 }
@@ -2033,33 +2039,33 @@ static const struct dmi_system_id ctrl_ps2_aux_port_list[] = {
 };
 
 static int ideapad_psy_ext_set_prop(struct power_supply *psy,
-				    const struct power_supply_ext *ext,
-				    void *ext_data,
-				    enum power_supply_property psp,
-				    const union power_supply_propval *val)
+									const struct power_supply_ext *ext,
+									void *ext_data,
+									enum power_supply_property psp,
+									const union power_supply_propval *val)
 {
 	struct ideapad_private *priv = ext_data;
 	unsigned long op1, op2;
 	int err;
 
 	switch (val->intval) {
-	case POWER_SUPPLY_CHARGE_TYPE_FAST:
-		if (WARN_ON(!priv->features.rapid_charge))
-			return -EINVAL;
+		case POWER_SUPPLY_CHARGE_TYPE_FAST:
+			if (WARN_ON(!priv->features.rapid_charge))
+				return -EINVAL;
 
 		op1 = SBMC_CONSERVATION_OFF;
 		op2 = SBMC_RAPID_CHARGE_ON;
 		break;
-	case POWER_SUPPLY_CHARGE_TYPE_LONGLIFE:
-		op1 = SBMC_RAPID_CHARGE_OFF;
-		op2 = SBMC_CONSERVATION_ON;
-		break;
-	case POWER_SUPPLY_CHARGE_TYPE_STANDARD:
-		op1 = SBMC_RAPID_CHARGE_OFF;
-		op2 = SBMC_CONSERVATION_OFF;
-		break;
-	default:
-		return -EINVAL;
+		case POWER_SUPPLY_CHARGE_TYPE_LONGLIFE:
+			op1 = SBMC_RAPID_CHARGE_OFF;
+			op2 = SBMC_CONSERVATION_ON;
+			break;
+		case POWER_SUPPLY_CHARGE_TYPE_STANDARD:
+			op1 = SBMC_RAPID_CHARGE_OFF;
+			op2 = SBMC_CONSERVATION_OFF;
+			break;
+		default:
+			return -EINVAL;
 	}
 
 	guard(mutex)(&priv->gbmd_sbmc_mutex);
@@ -2069,16 +2075,17 @@ static int ideapad_psy_ext_set_prop(struct power_supply *psy,
 		err = exec_sbmc(priv->adev->handle, op1);
 		if (err)
 			return err;
+		msleep(25);
 	}
 
 	return exec_sbmc(priv->adev->handle, op2);
 }
 
 static int ideapad_psy_ext_get_prop(struct power_supply *psy,
-				    const struct power_supply_ext *ext,
-				    void *ext_data,
-				    enum power_supply_property psp,
-				    union power_supply_propval *val)
+									const struct power_supply_ext *ext,
+									void *ext_data,
+									enum power_supply_property psp,
+									union power_supply_propval *val)
 {
 	struct ideapad_private *priv = ext_data;
 	bool is_rapid_charge, is_conservation;
@@ -2092,13 +2099,12 @@ static int ideapad_psy_ext_get_prop(struct power_supply *psy,
 	}
 
 	is_rapid_charge = (priv->features.rapid_charge &&
-			   test_bit(GBMD_RAPID_CHARGE_STATE_BIT, &result));
+	test_bit(GBMD_RAPID_CHARGE_STATE_BIT, &result));
 	is_conservation = test_bit(GBMD_CONSERVATION_STATE_BIT, &result);
 
 	if (unlikely(is_rapid_charge && is_conservation)) {
-		dev_err(&priv->platform_device->dev,
-			"unexpected charge_types: both [Fast] and [Long_Life] are enabled\n");
-		return -EINVAL;
+		val->intval = POWER_SUPPLY_CHARGE_TYPE_LONGLIFE;
+		return 0;
 	}
 
 	if (is_rapid_charge)
@@ -2280,40 +2286,46 @@ static void ideapad_wmi_notify(struct wmi_device *wdev, union acpi_object *data)
 		return;
 
 	switch (wpriv->event) {
-	case IDEAPAD_WMI_EVENT_ESC:
-		ideapad_input_report(priv, 128);
-		break;
-	case IDEAPAD_WMI_EVENT_FN_KEYS:
-		if (priv->features.set_fn_lock_led) {
-			int brightness = ideapad_fn_lock_get(priv);
+		case IDEAPAD_WMI_EVENT_ESC:
+			ideapad_input_report(priv, 128);
+			break;
+		case IDEAPAD_WMI_EVENT_FN_KEYS:
+			if (priv->features.set_fn_lock_led) {
+				int brightness = ideapad_fn_lock_get(priv);
 
-			if (brightness >= 0) {
-				ideapad_fn_lock_set(priv, brightness);
-				ideapad_fn_lock_led_notify(priv, brightness);
+				if (brightness >= 0) {
+					ideapad_fn_lock_set(priv, brightness);
+					ideapad_fn_lock_led_notify(priv, brightness);
+				}
 			}
-		}
 
-		if (data->type != ACPI_TYPE_INTEGER) {
-			dev_warn(&wdev->dev,
-				 "WMI event data is not an integer\n");
-			break;
-		}
+			if (data->type != ACPI_TYPE_INTEGER) {
+				dev_warn(&wdev->dev,
+						 "WMI event data is not an integer\n");
+				break;
+			}
 
-		dev_dbg(&wdev->dev, "WMI fn-key event: 0x%llx\n",
-			data->integer.value);
+			dev_dbg(&wdev->dev, "WMI fn-key event: 0x%llx\n",
+					data->integer.value);
 
-		/* performance button triggered by 0x3d */
-		if (data->integer.value == 0x3d && priv->dytc) {
-			platform_profile_cycle();
-			break;
-		}
+			/* Keyboard backlight state change events (0x40=Off, 0x41=Low, 0x42=High, 0x43=Auto) */
+			if (data->integer.value >= 0x40 && data->integer.value <= 0x43) {
+				ideapad_kbd_bl_notify(priv);
+				break;
+			}
 
-		/* 0x02 FnLock, 0x03 Esc */
-		if (data->integer.value == 0x02 || data->integer.value == 0x03)
-			ideapad_fn_lock_led_notify(priv, data->integer.value == 0x02);
+			/* performance button triggered by 0x3d */
+			if (data->integer.value == 0x3d && priv->dytc) {
+				platform_profile_cycle();
+				break;
+			}
+
+			/* 0x02 FnLock, 0x03 Esc */
+			if (data->integer.value == 0x02 || data->integer.value == 0x03)
+				ideapad_fn_lock_led_notify(priv, data->integer.value == 0x02);
 
 		ideapad_input_report(priv,
-				     data->integer.value | IDEAPAD_WMI_KEY);
+							 data->integer.value | IDEAPAD_WMI_KEY);
 
 		break;
 	}
@@ -2572,3 +2584,4 @@ module_exit(ideapad_laptop_exit)
 MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
 MODULE_DESCRIPTION("IdeaPad ACPI Extras");
 MODULE_LICENSE("GPL");
+
