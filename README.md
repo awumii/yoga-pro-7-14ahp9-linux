@@ -14,7 +14,7 @@ It works well out of the box, but these tweaks can improve the experience.
   [    0.277775] ACPI BIOS Error (bug): AE_AML_PACKAGE_LIMIT, Index (0x000000001) is beyond end of object (length 0x1) (20260408/exoparg2-393)
   [    0.277778] ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.PSWS due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
   [    0.277780] ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0._Q15 due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
-```
+  ```
 * NVIDIA tweaks:
   * Long delay when resuming from sleep, and other issues related to sleep and hibernate
     * Run `sudo systemctl enable --now nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service`
