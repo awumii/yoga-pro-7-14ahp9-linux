@@ -22,6 +22,11 @@ It works well out of the box, but these tweaks can improve the experience.
   * Better power limits
     * Run `sudo systemctl enable --now nvidia-powerd.service`
     * Adjust the power profile in the panel of KDE/GNOME, or use `powerprofilesctl`, now the nvidia dGPU power limit will be adjusted accordingly to your selected power-profile, bypassing the stock limit of 35W, up to 65W (prepare the charger, also it gets REALLY loud)
+  * Keeping the Nvidia GPU powered off when not needed:
+    * GPU autosuspend works well on the latest proprietary drivers, but userspace programs can unnecessarily wake up the GPU.
+    * If you use MangoHud, but want to play games on the Radeon iGPU without keeping the Nvidia GPU powered on, you need my MangoHud fork: https://github.com/awumii/MangoHud
+    * When a Vulkan context is created, it will wake up the Nvidia GPU even if it only creates a device for AMD Radeon. To workaround this, set this env variable in your `/etc/environment`: `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/radeon_icd.json`. If you want to run a Vulkan game/program with Nvidia, explicitly set `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json`
+    * For KDE Plazma, set this variable: `KWIN_DRM_DEVICES=/dev/dri/by-path/pci-0000:63:00.0-card`
     
 ## Installation
 ### Patched ideapad-laptop driver
