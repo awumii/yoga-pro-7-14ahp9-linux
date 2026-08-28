@@ -24,6 +24,7 @@ It works well out of the box, but these tweaks can improve the experience.
     * Adjust the power profile in the panel of KDE/GNOME, or use `powerprofilesctl`, now the nvidia dGPU power limit will be adjusted accordingly to your selected power-profile, bypassing the stock limit of 35W, up to 65W (prepare the charger, also it gets REALLY loud)
     
 ## Installation
+### Patched ideapad-laptop driver
 You can include the patched driver in your custom kernel, or use DKMS. I will put some guide here if i don't forget.  
 If you use Arch Linux/CachyOS/EndavourOS or other Arch-based OS, do this, after cloning the repository:
 ```
@@ -34,6 +35,25 @@ Reboot, or hotswap the driver:
 ```
 sudo modprobe -r ideapad_laptop
 sudo modprobe ideapad_laptop
+```
+
+### Patching the ACPI DSDT table
+Only do this if you have this exact laptop model, and if you see the errors in your kernel log.  
+There are many ways to inject a patched DSDT table, and you should check some wiki first. This is the method i use in my mkinitcpio+UKI setup.
+`dsdt.aml` is the precompiled table, `dsdt.dsl` contains the source code, which you can modify and compile yourself. Check the ArchWiki article on this.
+1. Copy `acpi/dsdt.aml` to `/etc/acpi/dsdt.aml`
+2. Paste the contents of `acpi/acpi_dsdt` inside `/etc/initcpio/install/acpi_dsdt`
+3. Inside `/etc/mkinitcpio.conf` add the hook after microcode, it should look like this
+```
+HOOKS=(base udev microcode acpi_dsdt autodetect modconf kms ...)
+```
+4. Regenerate initramfs by running `sudo mkinitcpio -P`
+5. Reboot, you should see this in your logs if the injection succeded:
+```
+[    0.013531] ACPI: DSDT ACPI table found in initrd [kernel/firmware/acpi/dsdt.aml][0x13e88]
+[    0.013758] ACPI: Table Upgrade: override [DSDT-LENOVO-CB-01   ]
+[    0.013759] ACPI: DSDT 0x000000007AFD3000 Physical table override, new table: 0x0000000077097000
+[    0.013760] ACPI: DSDT 0x0000000077097000 013E88 (v02 LENOVO CB-01    00000002 INTL 20251212)
 ```
 
 Other tweaks are applied individually. Look above.
