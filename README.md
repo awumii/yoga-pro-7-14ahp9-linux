@@ -10,23 +10,23 @@ It works well out of the box, but these tweaks can improve the experience.
   * Adds support for `Auto` keyboard backlight mode (this is not supported by userspace tools like KDE PowerDevil and will show as "High" brightness)
 * Patched ACPI DSDT Table
   * Fixed: ACPI Error spam while booting, charging, and resuming from sleep, this potentially fixes some issues.
-  ```
-  ACPI BIOS Error (bug): AE_AML_PACKAGE_LIMIT, Index (0x000000001) is beyond end of object (length 0x1) (20260408/exoparg2-393)
-  ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.PSWS due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
-  ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0._Q15 due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
-  ```
+    ```
+    ACPI BIOS Error (bug): AE_AML_PACKAGE_LIMIT, Index (0x000000001) is beyond end of object (length 0x1) (20260408/exoparg2-393)
+    ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.PSWS due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
+    ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0._Q15 due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
+    ```
   * Fixed: If your laptop has a Mediatek WIFI chip, when your laptop resumes from sleep:
-  ```
-  ACPI BIOS Error (bug): Could not resolve symbol [^^^GPP6.RTKW], AE_NOT_FOUND (20260408/psargs-365)
-  ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NOT_FOUND) (20260408/psparse-545)
-  ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
-  ```
+    ```
+    ACPI BIOS Error (bug): Could not resolve symbol [^^^GPP6.RTKW], AE_NOT_FOUND (20260408/psargs-365)
+    ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NOT_FOUND) (20260408/psparse-545)
+    ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
+    ```
   * Fixed: Three NVIDIA errors caused by dumb ACPI code:
     ```
-  NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get target temp from SBIOS @ platform_request_handler_ctrl.c:2174
-  NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get platform power mode from SBIOS @ platform_request_handler_ctrl.c:2117
-  NVRM: rm_power_source_change_event: rm_power_source_change_event: Failed to handle Power Source change event, status=0x11 
-  ```
+    NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get target temp from SBIOS @ platform_request_handler_ctrl.c:2174
+    NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get platform power mode from SBIOS @ platform_request_handler_ctrl.c:2117
+    NVRM: rm_power_source_change_event: rm_power_source_change_event: Failed to handle Power Source change event, status=0x11 
+    ```
 * Fixed this error by blacklisting this specific driver, it's not supposed to be used on this laptop and the error is purely cosmetical
   ```
   lenovo_wmi_gamezone 887B54E3-DDDC-4B2C-8B88-68A26A8835D0-3: platform_profile probe failed 
@@ -46,7 +46,7 @@ It works well out of the box, but these tweaks can improve the experience.
     
 ## Installation
 ### Patched ideapad-laptop driver
-You can include the patched driver in your custom kernel, or use DKMS. I will put some guide here if i don't forget.  
+You can include the patched driver in your custom kernel, or use DKMS. I couldn't find any good guide on how to use DKMS without a package manager. 
 If you use Arch Linux/CachyOS/EndavourOS or other Arch-based OS, do this, after cloning the repository:
 ```
 cd ideapad-laptop
@@ -54,8 +54,11 @@ makepkg -si
 ```
 
 ### Patching the ACPI DSDT table
-Only do this if you have this exact laptop model, and if you see the errors in your kernel log.  
-There are many ways to inject a patched DSDT table, and you should check some wiki first. This is the method i use in my mkinitcpio+UKI setup.
+⚠️ **REQUIRED BIOS:** NCCN30WW (03/17/2026)  
+ℹ️ **Check wiki first:** https://wiki.archlinux.org/title/DSDT  
+
+Only do this if you have this exact laptop model, and if you see the errors in your kernel log mentioned above.  
+There are many ways to inject a patched DSDT table, but this is the method i use in my mkinitcpio+UKI setup.
 `dsdt.aml` is the precompiled table, `dsdt.dsl` contains the source code, which you can modify and compile yourself. Check the ArchWiki article on this.
 1. Copy `acpi/*.aml` to `/etc/acpi/``
 2. Paste the contents of `acpi/acpi_dsdt` inside `/etc/initcpio/install/acpi_dsdt`
