@@ -33,7 +33,6 @@ It works well out of the box, but these tweaks can improve the experience.
     * GPU autosuspend works well on the latest proprietary drivers, but userspace programs can unnecessarily wake up the GPU.
     * If you use MangoHud, but want to play games on the Radeon iGPU without keeping the Nvidia GPU powered on, you need my MangoHud fork: https://github.com/awumii/MangoHud
     * When a Vulkan context is created, it will wake up the Nvidia GPU even if it only creates a device for AMD Radeon. To workaround this, set this env variable in your `/etc/environment`: `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/radeon_icd.json`. If you want to run a Vulkan game/program with Nvidia, explicitly set `VK_DRIVER_FILES=/usr/share/vulkan/icd.d/nvidia_icd.json`
-    * For KDE Plazma, set this variable: `KWIN_DRM_DEVICES=/dev/dri/by-path/pci-0000:63:00.0-card`
     
 ## Installation
 ### Patched ideapad-laptop driver
@@ -55,7 +54,7 @@ sudo modprobe ideapad_laptop
 Only do this if you have this exact laptop model, and if you see the errors in your kernel log.  
 There are many ways to inject a patched DSDT table, and you should check some wiki first. This is the method i use in my mkinitcpio+UKI setup.
 `dsdt.aml` is the precompiled table, `dsdt.dsl` contains the source code, which you can modify and compile yourself. Check the ArchWiki article on this.
-1. Copy `acpi/dsdt.aml` to `/etc/acpi/dsdt.aml`
+1. Copy `acpi/*.aml` to `/etc/acpi/``
 2. Paste the contents of `acpi/acpi_dsdt` inside `/etc/initcpio/install/acpi_dsdt`
 3. Inside `/etc/mkinitcpio.conf` add the hook after microcode, it should look like this
 ```
@@ -74,6 +73,7 @@ Other tweaks are applied individually. Look above.
 
 ## Unresolved issues
 ### 1. Error on resume
+<del>
 If your laptop has a Mediatek WIFI chip like mine, when your laptop resumes from sleep you will see an error in dmesg:
 ```
 ACPI BIOS Error (bug): Could not resolve symbol [^^^GPP6.RTKW], AE_NOT_FOUND (20260408/psargs-365)
@@ -81,17 +81,14 @@ ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NO
 ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
 ```
 This is harmless and doesn't cause any issues, but one day i will probably patch the DSDT to fix this.
-
+</del>
+**UPDATE: Solved!**
 ### 2. Error on USB-C connector
-~~
 When plugging or unplugging a USB-C charger, charging state notification will be delayed by exactly 10 seconds, and will show errors in dmesg:
 ```
 ucsi_acpi USBC000:00: ucsi_handle_connector_change: GET_CONNECTOR_STATUS failed (-110)
 ucsi_acpi USBC000:00: ucsi_handle_connector_change entered without EVENT_PENDING
 ```
-This seems to be harmless, but the delay is annoying. This is a firmware issue and cannot be fixed. The solution to the delay is to patch the ucsi_acpi driver, maybe i will do that one day.
-~~
-The errors were fixed in a patched ucsi driver. This issue could potentially cause NVIDIA GSP instability among others, but it needs more testing.
 
 ### 3. IR sensor randomly stops working
 The IR sensor is detected and outputs a black-white image correctly and can be used with Howdy for face biometrics. However, after some time or caused by some unknown circumstances, the IR sensor will only output a pure black image. TODO: investigate
@@ -108,10 +105,37 @@ NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_
 NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get platform power mode from SBIOS @ platform_request_handler_ctrl.c:2117
 ```
 This is probably harmless, but i will need to investigate.
-**UPDATE**: This may be related to either ucsi or ideapad driver blocking the queue.
 
 ## Other notes
 * Upgrading BIOS firmware requires booting to Windows, if you don't dualboot, use a recovery WinPE iso from a USB drive. There is no other way, i tried unpacking the update package and running it in EFI shell, and it just refuses to start.
+```
+> BTW, someone in the thread seems to be spreading misinformation, as you can
+> unpack the firmware update (PE32/exe) and use the included ~34MiB bin file
+> with fwupd which is how I have the latest firmware actually.
+
+I didn't know you could do that with fwupd either. I'll have to try it next time.
+
+Comment 45 fililip 2026-03-02 14:41:01 UTC
+
+(In reply to Avraham Hollander from comment #44)
+> I didn't know you could do that with fwupd either. I'll have to try it next
+> time.
+
+This only works for AMD platforms, I think, but all you need to do is run
+
+doas fwupdtool get-devices | grep -A 1 "System Firmware"
+
+get the ID, and then execute
+
+doas fwupdtool install-blob WinPSCN21WW.fd [that ID]
+
+with WinPSCN21WW.fd being that extracted update file.
+
+Then fwupd will prompt you for a reboot and install the update from the EFI.
+
+Intel platforms have an additional IME update and I'm not sure how that's supposed to work, so caution is advised.
+
+```
 * Someone on ArchWiki mentioned something about 3.5mm headphone jack needing a tweak in PipeWire/alsamixer to work. I didn't test it yet.
 
 ## License
