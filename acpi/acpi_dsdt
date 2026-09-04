@@ -1,18 +1,23 @@
 #!/usr/bin/env bash
 
 build() {
-    local acpi_file="/etc/acpi/dsdt.aml"
-    local acpi_dest="kernel/firmware/acpi/dsdt.aml"
+    local acpi_dir="/etc/acpi"
+    local acpi_dest="kernel/firmware/acpi"
 
-    if [[ -f "$acpi_file" ]]; then
-        mkdir -p "${EARLYROOT}/kernel/firmware/acpi"
-        cp "$acpi_file" "${EARLYROOT}/${acpi_dest}"
-        quiet "added ACPI DSDT override to unified early CPIO: '%s'" "$acpi_file"
+    if [[ -d "$acpi_dir" ]]; then
+        mkdir -p "${EARLYROOT}/${acpi_dest}"
+        
+        for table in "${acpi_dir}"/*.aml; do
+            if [[ -f "$table" ]]; then
+                cp "$table" "${EARLYROOT}/${acpi_dest}/"
+                quiet "added ACPI table override to unified early CPIO: '%s'" "$table"
+            fi
+        done
     fi
 }
 
 help() {
     cat <<HELPEOF
-Patches ACPI DSDT
+Copy patched ACPI tables to initramfs
 HELPEOF
 }

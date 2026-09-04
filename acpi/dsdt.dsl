@@ -6014,7 +6014,7 @@ DefinitionBlock ("", "DSDT", 2, "LENOVO", "CB-01   ", 0x00000002)
                             Return (Local0)
                         }
 
-                        Release (ECMT)
+                        // YOGA PATCH - don't release mutex twice
                         Return (0xFF)
                     }
 
@@ -14261,57 +14261,8 @@ DefinitionBlock ("", "DSDT", 2, "LENOVO", "CB-01   ", 0x00000002)
                     Name (DGFL, One)
                     Method (HTPL, 0, NotSerialized)
                     {
-                        Name (IGPM, Zero)
-                        DGFL = ^^PCI0.LPC0.EC0.REJF (0x04)
-                        IGPM = ^^PCI0.LPC0.EC0.REJF (One)
-                        If ((DGFL == One))
-                        {
-                            If ((IGPM == One))
-                            {
-                                ^^PCI0.LPC0.EC0.WEJF (0x02, Zero)
-                                Notify (^^PCI0.GPP0.PEGP, 0x03) // Eject Request
-                                Return (One)
-                            }
-
-                            If (((IGPM == 0x02) && (^^PCI0.LPC0.EC0.ACIN != One)))
-                            {
-                                ^^PCI0.LPC0.EC0.WEJF (0x02, Zero)
-                                Notify (^^PCI0.GPP0.PEGP, 0x03) // Eject Request
-                                Return (One)
-                            }
-
-                            Return (Zero)
-                        }
-                        ElseIf ((DGFL == Zero))
-                        {
-                            If ((IGPM == Zero))
-                            {
-                                ^^PCI0.LPC0.EC0.WEJF (0x03, Zero)
-                                ^^PCI0.LPC0.EC0.WEJF (0x02, Zero)
-                                ^^PCI0.GPP0.PG00._ON ()
-                                Sleep (0x14)
-                                Notify (^^PCI0.GPP0.PEGP, Zero) // Bus Check
-                                ^^PCI0.LPC0.EC0.WEJF (0x04, One)
-                                Return (One)
-                            }
-
-                            If (((IGPM == 0x02) && (^^PCI0.LPC0.EC0.ACIN == One)))
-                            {
-                                ^^PCI0.LPC0.EC0.WEJF (0x03, Zero)
-                                ^^PCI0.LPC0.EC0.WEJF (0x02, Zero)
-                                ^^PCI0.GPP0.PG00._ON ()
-                                Sleep (0x14)
-                                Notify (^^PCI0.GPP0.PEGP, Zero) // Bus Check
-                                ^^PCI0.LPC0.EC0.WEJF (0x04, One)
-                                Return (One)
-                            }
-
-                            Return (Zero)
-                        }
-                        Else
-                        {
-                            Return (Zero)
-                        }
+                        // YOGA PATCH: There used to be a dumb PCI eject for nvidia. Nvidia driver can handle power management preoperly
+                        Return (Zero)
                     }
 
                     Name (IPID, Buffer (0x0200)
@@ -16523,6 +16474,14 @@ DefinitionBlock ("", "DSDT", 2, "LENOVO", "CB-01   ", 0x00000002)
 
     Scope (_SB.PCI0)
     {
+        Device (PB2)
+        {
+            Name (_ADR, 0x00020002)  // Dummy PCI address
+            Method (_STA, 0, NotSerialized)
+            {
+                Return (Zero)
+            }
+        }
         Device (UAR1)
         {
             Name (_HID, EisaId ("PNP0500") /* Standard PC COM Serial Port */)  // _HID: Hardware ID
@@ -17748,6 +17707,13 @@ DefinitionBlock ("", "DSDT", 2, "LENOVO", "CB-01   ", 0x00000002)
                 /* 0268 */  0x21, 0xE8, 0x88, 0xE0, 0x58, 0x20, 0x34, 0x08,  // !...X 4.
                 /* 0270 */  0x9D, 0x40, 0xFC, 0xFF, 0x07                     // .@...
             })
+        }
+    }
+    Scope (\_SB.PCI0.GPP6)
+    {
+        Method (RTKW, 0, NotSerialized)
+        {
+            Return (Zero)
         }
     }
 }

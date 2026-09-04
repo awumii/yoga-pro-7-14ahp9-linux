@@ -8,21 +8,31 @@ It works well out of the box, but these tweaks can improve the experience.
   * Fixes charging mode issues such as `ideapad_acpi VPC2004:00: unexpected charge_types: both [Fast] and [Long_Life] are enabled`
   * Fixes keyboard backlight reporting to udev
   * Adds support for `Auto` keyboard backlight mode (this is not supported by userspace tools like KDE PowerDevil and will show as "High" brightness)
-* Patched **ucsi_acpi** driver:
-  * Fixes various other charging issues (yes, fixing charging in this laptop requires patching TWO separate drivers...), such as:
-  ```
-  ucsi_acpi USBC000:00: ucsi_handle_connector_change: GET_CONNECTOR_STATUS failed (-110) 
-  ucsi_acpi USBC000:00: ucsi_handle_connector_change entered without EVENT_PENDING 
-  ```
-  * This *may* fix NVIDIA instability on open drivers (GSP). Current status: **STILL TESTING**
 * Patched ACPI DSDT Table
-  * Fixes ACPI Error spam while booting, charging, and resuming from sleep, this potentially fixes some issues.
+  * Fixed: ACPI Error spam while booting, charging, and resuming from sleep, this potentially fixes some issues.
   ```
   ACPI BIOS Error (bug): AE_AML_PACKAGE_LIMIT, Index (0x000000001) is beyond end of object (length 0x1) (20260408/exoparg2-393)
   ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.PSWS due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
   ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0._Q15 due to previous error (AE_AML_PACKAGE_LIMIT) (20260408/psparse-545)
   ```
+  * Fixed: If your laptop has a Mediatek WIFI chip, when your laptop resumes from sleep:
+  ```
+  ACPI BIOS Error (bug): Could not resolve symbol [^^^GPP6.RTKW], AE_NOT_FOUND (20260408/psargs-365)
+  ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NOT_FOUND) (20260408/psparse-545)
+  ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
+  ```
+  * Fixed: Three NVIDIA errors caused by dumb ACPI code:
+    ```
+  NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get target temp from SBIOS @ platform_request_handler_ctrl.c:2174
+  NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get platform power mode from SBIOS @ platform_request_handler_ctrl.c:2117
+  NVRM: rm_power_source_change_event: rm_power_source_change_event: Failed to handle Power Source change event, status=0x11 
+  ```
+* Fixed this error by blacklisting this specific driver, it's not supposed to be used on this laptop and the error is purely cosmetical
+  ```
+  lenovo_wmi_gamezone 887B54E3-DDDC-4B2C-8B88-68A26A8835D0-3: platform_profile probe failed 
+  ```
 * NVIDIA tweaks:
+  * Forked driver with some additional fixes: https://github.com/awumii/open-gpu-kernel-modules
   * Long delay when resuming from sleep, and other issues related to sleep and hibernate
     * Run `sudo systemctl enable --now nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service`
     * Inside this repository, run `sudo ./fix-nvidia-freeze.sh` (make sure the file is executable)
@@ -41,13 +51,6 @@ If you use Arch Linux/CachyOS/EndavourOS or other Arch-based OS, do this, after 
 ```
 cd ideapad-laptop
 makepkg -si
-```
-### Patched ucsi-acpi driver
-Same as above, but in `ucsi` dir.
-Reboot, or hotswap the driver:
-```
-sudo modprobe -r ideapad_laptop
-sudo modprobe ideapad_laptop
 ```
 
 ### Patching the ACPI DSDT table
@@ -68,48 +71,29 @@ ACPI: Table Upgrade: override [DSDT-LENOVO-CB-01   ]
 ACPI: DSDT 0x000000007AFD3000 Physical table override, new table: 0x0000000077097000
 ACPI: DSDT 0x0000000077097000 013E88 (v02 LENOVO CB-01    00000002 INTL 20251212)
 ```
-
-Other tweaks are applied individually. Look above.
+### modprobe configs
+Copy them from `modprobe.d` to `/etc/modprobe.d/`
 
 ## Unresolved issues
-### 1. Error on resume
-<del>
-If your laptop has a Mediatek WIFI chip like mine, when your laptop resumes from sleep you will see an error in dmesg:
-```
-ACPI BIOS Error (bug): Could not resolve symbol [^^^GPP6.RTKW], AE_NOT_FOUND (20260408/psargs-365)
-ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NOT_FOUND) (20260408/psparse-545)
-ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
-```
-This is harmless and doesn't cause any issues, but one day i will probably patch the DSDT to fix this.
-</del>  
-
-**UPDATE: Solved!**  
-
-### 2. Error on USB-C connector
-When plugging or unplugging a USB-C charger, charging state notification will be delayed by exactly 10 seconds, and will show errors in dmesg:
+### 1. Error on USB-C connector
+When plugging or unplugging a USB-C charger, you will get this error spam:
 ```
 ucsi_acpi USBC000:00: ucsi_handle_connector_change: GET_CONNECTOR_STATUS failed (-110)
 ucsi_acpi USBC000:00: ucsi_handle_connector_change entered without EVENT_PENDING
 ```
+This is caused by a faulty UCSI implementation in this laptop, and the truth is, it is mostly a stub on this laptop, so you may as well just `blacklist ucsi_acpi` in modprobe.
 
-### 3. IR sensor randomly stops working
+### 2. IR sensor randomly stops working
 The IR sensor is detected and outputs a black-white image correctly and can be used with Howdy for face biometrics. However, after some time or caused by some unknown circumstances, the IR sensor will only output a pure black image. TODO: investigate
 
-### 4. Random NVIDIA errors
-Sometimes, when booting, resuming or some other random events, the Nvidia driver can throw some errors, such as:
+### 3. Failed to handle ACPI D-Notifier (NVIDIA)
+When restoring from sleep, this error will appear two times. You can just ignore it, or i perhaps i will fix this in my NVIDIA fork.
 ```
 NVRM: RmHandleDNotifierEvent: RmHandleDNotifierEvent: Failed to handle ACPI D-Notifier event, status=0x11
-NVRM: rm_power_source_change_event: rm_power_source_change_event: Failed to handle Power Source change event, status=0x11 
 ```
-There is also another one:
-```
-NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get target temp from SBIOS @ platform_request_handler_ctrl.c:2174
-NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_INVALID_DATA] (0x00000025) returned from PlatformRequestHandler failed to get platform power mode from SBIOS @ platform_request_handler_ctrl.c:2117
-```
-This is probably harmless, but i will need to investigate.
 
 ## Other notes
-* Upgrading BIOS firmware requires booting to Windows, if you don't dualboot, use a recovery WinPE iso from a USB drive. There is no other way, i tried unpacking the update package and running it in EFI shell, and it just refuses to start. It may be possible with fwupd:
+* Upgrading BIOS firmware:
 ```
 > BTW, someone in the thread seems to be spreading misinformation, as you can
 > unpack the firmware update (PE32/exe) and use the included ~34MiB bin file
