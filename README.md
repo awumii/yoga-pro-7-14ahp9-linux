@@ -81,8 +81,10 @@ ACPI Error: Aborting method \_SB.PCI0.LPC0.EC0.UPHK due to previous error (AE_NO
 ACPI Error: Aborting method \_SB.PEP._DSM due to previous error (AE_NOT_FOUND) (20260408/psparse-545) 
 ```
 This is harmless and doesn't cause any issues, but one day i will probably patch the DSDT to fix this.
-</del>
-**UPDATE: Solved!**
+</del>  
+
+**UPDATE: Solved!**  
+
 ### 2. Error on USB-C connector
 When plugging or unplugging a USB-C charger, charging state notification will be delayed by exactly 10 seconds, and will show errors in dmesg:
 ```
@@ -107,7 +109,7 @@ NVRM: GPU0 nvAssertOkFailedNoLog: Assertion failed: Invalid data passed [NV_ERR_
 This is probably harmless, but i will need to investigate.
 
 ## Other notes
-* Upgrading BIOS firmware requires booting to Windows, if you don't dualboot, use a recovery WinPE iso from a USB drive. There is no other way, i tried unpacking the update package and running it in EFI shell, and it just refuses to start.
+* Upgrading BIOS firmware requires booting to Windows, if you don't dualboot, use a recovery WinPE iso from a USB drive. There is no other way, i tried unpacking the update package and running it in EFI shell, and it just refuses to start. It may be possible with fwupd:
 ```
 > BTW, someone in the thread seems to be spreading misinformation, as you can
 > unpack the firmware update (PE32/exe) and use the included ~34MiB bin file
@@ -136,7 +138,6 @@ Then fwupd will prompt you for a reboot and install the update from the EFI.
 Intel platforms have an additional IME update and I'm not sure how that's supposed to work, so caution is advised.
 
 ```
-* Someone on ArchWiki mentioned something about 3.5mm headphone jack needing a tweak in PipeWire/alsamixer to work. I didn't test it yet.
 
 ## License
 
