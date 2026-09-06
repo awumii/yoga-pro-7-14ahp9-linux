@@ -1,7 +1,9 @@
 # Resources for Yoga Pro 7 14AHP9 on Linux
 This repository contains my patches, drivers and other resources useful for those who want a better Linux experience on this laptop.  
 My model is specifically a Yoga Pro 7 14AHP9 with AMD Ryzen 7 8845HS, RTX 3050 6GB and MEDIATEK MT7922 802.11ax.  
-It works well out of the box, but these tweaks can improve the experience.
+It works well out of the box, but these tweaks can improve the experience.  
+
+📌 **The Goal:** Get rid of all errors in dmesg, even those that seem harmless. Apply all patches here if you want a clean log, or just apply those patches that fix actual issues.
 
 ## Fixes included in this repository
 * Patched **ideapad-laptop** (ideadpad_acpi) driver:
@@ -33,6 +35,7 @@ It works well out of the box, but these tweaks can improve the experience.
   ```
 * NVIDIA tweaks:
   * Forked driver with some additional fixes: https://github.com/awumii/open-gpu-kernel-modules
+  * [FORK] Fixes this error message when waking from sleep: `NVRM: RmHandleDNotifierEvent: RmHandleDNotifierEvent: Failed to handle ACPI D-Notifier event, status=0x11`
   * Long delay when resuming from sleep, and other issues related to sleep and hibernate
     * Run `sudo systemctl enable --now nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service`
     * Inside this repository, run `sudo ./fix-nvidia-freeze.sh` (make sure the file is executable)
@@ -77,8 +80,8 @@ ACPI: DSDT 0x0000000077097000 013E88 (v02 LENOVO CB-01    00000002 INTL 20251212
 ### modprobe configs
 Copy them from `modprobe.d` to `/etc/modprobe.d/`
 
-## Unresolved issues
-### 1. Error on USB-C connector
+# Additional notes
+### Error on USB-C connector
 When plugging or unplugging a USB-C charger, you will get this error spam:
 ```
 ucsi_acpi USBC000:00: ucsi_handle_connector_change: GET_CONNECTOR_STATUS failed (-110)
@@ -86,17 +89,11 @@ ucsi_acpi USBC000:00: ucsi_handle_connector_change entered without EVENT_PENDING
 ```
 This is caused by a faulty UCSI implementation in this laptop, and the truth is, it is mostly a stub on this laptop, so you may as well just `blacklist ucsi_acpi` in modprobe.
 
-### 2. IR sensor randomly stops working
+### IR sensor randomly stops working
 The IR sensor is detected and outputs a black-white image correctly and can be used with Howdy for face biometrics. However, after some time or caused by some unknown circumstances, the IR sensor will only output a pure black image. TODO: investigate
 
-### 3. Failed to handle ACPI D-Notifier (NVIDIA)
-When restoring from sleep, this error will appear two times. You can just ignore it, or i perhaps i will fix this in my NVIDIA fork.
-```
-NVRM: RmHandleDNotifierEvent: RmHandleDNotifierEvent: Failed to handle ACPI D-Notifier event, status=0x11
-```
-
-## Other notes
-* Upgrading BIOS firmware:
+### Upgrading BIOS firmware:
+I found this in an unrelated discussion in Bugzilla about this laptop:
 ```
 > BTW, someone in the thread seems to be spreading misinformation, as you can
 > unpack the firmware update (PE32/exe) and use the included ~34MiB bin file
